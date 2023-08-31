@@ -1,0 +1,26 @@
+[
+    {
+        "prompt": "an illustration of a porsche gt3",
+        "width": 1024,
+        "height": 1024,
+        "seed": 123
+    },
+    {
+        "prompt": "jrch, a puppy floating through space",
+        "width": 1024,
+        "height": 1024,
+        "seed": 123
+    },
+    {
+        "prompt": "jrch, an illustration of a porsche gt3",
+        "width": 1024,
+        "height": 1024,
+        "seed": 123
+    },
+    {
+        "prompt": "a puppy floating through space",
+        "width": 1024,
+        "height": 1024,
+        "seed": 123
+    }
+]

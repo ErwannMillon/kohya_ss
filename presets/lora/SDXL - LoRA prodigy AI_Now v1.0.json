@@ -1,5 +1,5 @@
 {
-    "LoRA_type": "Standard",
+    "LoRA_type": "LyCORIS/LoCon",
     "adaptive_noise_scale": 0,
     "additional_parameters": "",
     "block_alphas": "",

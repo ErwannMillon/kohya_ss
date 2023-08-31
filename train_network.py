@@ -1,39 +1,31 @@
-import importlib
 import argparse
 import gc
+import importlib
+import json
 import math
 import os
-import sys
 import random
+import sys
 import time
-import json
 from multiprocessing import Value
-import toml
 
-from tqdm import tqdm
+import toml
 import torch
 from accelerate.utils import set_seed
 from diffusers import DDPMScheduler
-from library import model_util
+from tqdm import tqdm
 
-import library.train_util as train_util
-from library.train_util import (
-    DreamBoothDataset,
-)
 import library.config_util as config_util
-from library.config_util import (
-    ConfigSanitizer,
-    BlueprintGenerator,
-)
-import library.huggingface_util as huggingface_util
 import library.custom_train_functions as custom_train_functions
+import library.huggingface_util as huggingface_util
+import library.train_util as train_util
+from library import model_util
+from library.config_util import BlueprintGenerator, ConfigSanitizer
 from library.custom_train_functions import (
-    apply_snr_weight,
-    get_weighted_text_embeddings,
+    add_v_prediction_like_loss, apply_snr_weight, get_weighted_text_embeddings,
     prepare_scheduler_for_custom_training,
-    scale_v_prediction_loss_like_noise_prediction,
-    add_v_prediction_like_loss,
-)
+    scale_v_prediction_loss_like_noise_prediction)
+from library.train_util import DreamBoothDataset
 
 
 class NetworkTrainer:
@@ -745,7 +737,7 @@ class NetworkTrainer:
                                 latents = torch.where(torch.isnan(latents), torch.zeros_like(latents), latents)
                         latents = latents * self.vae_scale_factor
                     b_size = latents.shape[0]
-
+                    print(batch["captions"])
                     with torch.set_grad_enabled(train_text_encoder):
                         # Get the text embedding for conditioning
                         if args.weighted_captions:

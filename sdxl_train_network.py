@@ -1,7 +1,10 @@
 import argparse
+
 import torch
-from library import sdxl_model_util, sdxl_train_util, train_util
+
 import train_network
+from config_utils import save_namespace_to_yaml
+from library import sdxl_model_util, sdxl_train_util, train_util
 
 
 class SdxlNetworkTrainer(train_network.NetworkTrainer):
@@ -170,5 +173,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
     args = train_util.read_config_from_file(args, parser)
 
+    save_namespace_to_yaml(args, "kohya_config.yaml")
+    import os
+    if not os.path.exists(args.output_dir):
+        os.makedirs(args.output_dir, exist_ok=True)
+    save_namespace_to_yaml(args, os.path.join(args.output_dir, "kohya_config.yaml"))
     trainer = SdxlNetworkTrainer()
+
+
     trainer.train(args)

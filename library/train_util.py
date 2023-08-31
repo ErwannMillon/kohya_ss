@@ -1108,6 +1108,7 @@ class BaseDataset(torch.utils.data.Dataset):
 
             # captionとtext encoder outputを処理する
             caption = image_info.caption  # default
+            # print(f"caption: {caption}")
             if image_info.text_encoder_outputs1 is not None:
                 text_encoder_outputs1_list.append(image_info.text_encoder_outputs1)
                 text_encoder_outputs2_list.append(image_info.text_encoder_outputs2)
@@ -1186,6 +1187,7 @@ class BaseDataset(torch.utils.data.Dataset):
 
         example["latents"] = torch.stack(latents_list) if latents_list[0] is not None else None
         example["captions"] = captions
+        # print(f"captions = {captions}")
 
         example["original_sizes_hw"] = torch.stack([torch.LongTensor(x) for x in original_sizes_hw])
         example["crop_top_lefts"] = torch.stack([torch.LongTensor(x) for x in crop_top_lefts])

@@ -45,6 +45,22 @@ The learning rate should be set to about 1e-4, which is higher than normal Dream
 Below is an example command line (DreamBooth technique).
 
 ```
+
+<!-- python3 sd-scripts/train_network.py \ -->
+
+accelerate launch --num_cpu_threads_per_process 12 sdxl_train_network.py
+  --pretrained_model_name_or_path=/home/erwann/stable-diffusion-webui/models/Stable-diffusion/sd_xl_base_1.0.safetensors \
+  --train_data_dir=/home/erwann/jillus --output_dir=lorajillus \
+  --resolution=1024,1024 --train_batch_size=1 --learning_rate=1e-4
+  --network_module lycoris.kohya \
+  --network_dim "8" --network_alpha "4"\
+  --save_model_as=safetensors --seed=42 \ 
+  --max_train_steps=1000 --mixed_precision=fp16
+  --network_args "conv_dim=4" "conv_alpha=1" \
+  "algo=locon" \ 
+  --text_encoder_lr 5e-5 \
+
+
 accelerate launch --num_cpu_threads_per_process 12 train_network.py
      --pretrained_model_name_or_path=..\models\model.ckpt
      --train_data_dir=..\data\db\char1 --output_dir=..\lora_train1
@@ -54,6 +70,15 @@ accelerate launch --num_cpu_threads_per_process 12 train_network.py
      --save_every_n_epochs=1 --save_model_as=safetensors --clip_skip=2 --seed=42 --color_aug
      --network_module=networks.lora
 ```
+
+accelerate launch --num_cpu_threads_per_process 12 train_network.py
+     --pretrained_model_name_or_path=..\models\model.ckpt
+     --train_data_dir=..\data\db\char1 --output_dir=..\lora_train1
+     --reg_data_dir=..\data\db\reg1 --prior_loss_weight=1.0
+     --resolution=448,640 --train_batch_size=1 --learning_rate=1e-4
+     --max_train_steps=400 --use_8bit_adam --xformers --mixed_precision=fp16
+     --save_every_n_epochs=1 --save_model_as=safetensors --clip_skip=2 --seed=42 --color_aug
+     --network_module=networks.lora
 
 The LoRA model will be saved in the directory specified by the --output_dir option.
 
@@ -128,6 +153,11 @@ For --ratios, specify the ratio of each model (how much weight is reflected in t
 
 LoRA trained with v1 and LoRA trained with v2, and LoRA with different number of dimensions cannot be merged. U-Net only LoRA and U-Net+Text Encoder LoRA should be able to merge, but the result is unknown.
 
+python3 sd-scripts/train_network.py \
+  --network_module lycoris.kohya \
+  --network_dim "8" --network_alpha "4"\
+  --network_args "conv_dim=4" "conv_alpha=1" \
+  "algo=locon" \
 
 ### Other Options
 
