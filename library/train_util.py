@@ -3,67 +3,53 @@
 import argparse
 import ast
 import asyncio
-import importlib
-import json
-import pathlib
-import re
-import shutil
-import time
-from typing import (
-    Dict,
-    List,
-    NamedTuple,
-    Optional,
-    Sequence,
-    Tuple,
-    Union,
-)
-from accelerate import Accelerator
 import gc
 import glob
+import hashlib
+import importlib
+import json
 import math
 import os
+import pathlib
 import random
-import hashlib
+import re
+import shutil
 import subprocess
+import time
 from io import BytesIO
-import toml
+from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple, Union
 
-from tqdm import tqdm
+import cv2
+import numpy as np
+import safetensors.torch
+import toml
 import torch
+import transformers
+from accelerate import Accelerator
+from diffusers import (AutoencoderKL, DDIMScheduler, DDPMScheduler,
+                       DPMSolverMultistepScheduler,
+                       DPMSolverSinglestepScheduler,
+                       EulerAncestralDiscreteScheduler, EulerDiscreteScheduler,
+                       HeunDiscreteScheduler, KDPM2AncestralDiscreteScheduler,
+                       KDPM2DiscreteScheduler, LMSDiscreteScheduler,
+                       PNDMScheduler, StableDiffusionPipeline)
+from diffusers.optimization import TYPE_TO_SCHEDULER_FUNCTION, SchedulerType
+from huggingface_hub import hf_hub_download
+from PIL import Image
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim import Optimizer
 from torchvision import transforms
-from transformers import CLIPTokenizer, CLIPTextModel, CLIPTextModelWithProjection
-import transformers
-from diffusers.optimization import SchedulerType, TYPE_TO_SCHEDULER_FUNCTION
-from diffusers import (
-    StableDiffusionPipeline,
-    DDPMScheduler,
-    EulerAncestralDiscreteScheduler,
-    DPMSolverMultistepScheduler,
-    DPMSolverSinglestepScheduler,
-    LMSDiscreteScheduler,
-    PNDMScheduler,
-    DDIMScheduler,
-    EulerDiscreteScheduler,
-    HeunDiscreteScheduler,
-    KDPM2DiscreteScheduler,
-    KDPM2AncestralDiscreteScheduler,
-    AutoencoderKL,
-)
-from library import custom_train_functions
-from library.original_unet import UNet2DConditionModel
-from huggingface_hub import hf_hub_download
-import numpy as np
-from PIL import Image
-import cv2
-import safetensors.torch
-from library.lpw_stable_diffusion import StableDiffusionLongPromptWeightingPipeline
-import library.model_util as model_util
-import library.huggingface_util as huggingface_util
-import library.sai_model_spec as sai_model_spec
+from tqdm import tqdm
+from transformers import (CLIPTextModel, CLIPTextModelWithProjection,
+                          CLIPTokenizer)
 
+import library.huggingface_util as huggingface_util
+import library.model_util as model_util
+import library.sai_model_spec as sai_model_spec
+from comfy_t2i import t2i
+from library import custom_train_functions
+from library.lpw_stable_diffusion import \
+    StableDiffusionLongPromptWeightingPipeline
 # from library.attention_processors import FlashAttnProcessor
 # from library.hypernetwork import replace_attentions_for_hypernetwork
 from library.original_unet import UNet2DConditionModel
@@ -4324,6 +4310,80 @@ SCHEDLER_SCHEDULE = "scaled_linear"
 
 def sample_images(*args, **kwargs):
     return sample_images_common(StableDiffusionLongPromptWeightingPipeline, *args, **kwargs)
+
+def new_sample(
+    accelerator,
+    args: argparse.Namespace,
+    epoch,
+    steps,
+    device,
+    lora_path,
+):
+    if args.sample_every_n_steps is None and args.sample_every_n_epochs is None:
+        return
+    if args.sample_every_n_epochs is not None:
+        # sample_every_n_steps は無視する
+        if epoch is None or epoch % args.sample_every_n_epochs != 0:
+            return
+    else:
+        if steps % args.sample_every_n_steps != 0 or epoch is not None:  # steps is not divisible or end of epoch
+            return
+
+    print(f"\ngenerating sample images at step / サンプル画像生成 ステップ: {steps}")
+    if not os.path.isfile(args.sample_prompts):
+        print(f"No prompt file / プロンプトファイルがありません: {args.sample_prompts}")
+        return
+
+    if args.sample_prompts.endswith(".txt"):
+        with open(args.sample_prompts, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        prompts = [line.strip() for line in lines if len(line.strip()) > 0 and line[0] != "#"]
+    elif args.sample_prompts.endswith(".toml"):
+        with open(args.sample_prompts, "r", encoding="utf-8") as f:
+            data = toml.load(f)
+        prompts = [dict(**data["prompt"], **subset) for subset in data["prompt"]["subset"]]
+    elif args.sample_prompts.endswith(".json"):
+        with open(args.sample_prompts, "r", encoding="utf-8") as f:
+            prompts = json.load(f)
+
+    save_dir = args.output_dir + "/sample"
+    os.makedirs(save_dir, exist_ok=True)
+
+    rng_state = torch.get_rng_state()
+    cuda_rng_state = torch.cuda.get_rng_state() if torch.cuda.is_available() else None
+
+    with torch.no_grad():
+        # with accelerator.autocast():
+        for i, prompt in enumerate(prompts):
+            if not accelerator.is_main_process:
+                continue
+
+            assert isinstance(prompt, dict)
+            negative_prompt = prompt.get("negative_prompt")
+            sample_steps = prompt.get("sample_steps", 30)
+            width = prompt.get("width", 512)
+            height = prompt.get("height", 512)
+            scale = prompt.get("scale", 7.5)
+            seed = prompt.get("seed")
+            controlnet_image = prompt.get("controlnet_image")
+            prompt = prompt.get("prompt")
+
+            image = t2i(
+                prompt,
+                lora_path=lora_path,
+            )
+
+            ts_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
+            num_suffix = f"e{epoch:06d}" if epoch is not None else f"{steps:06d}"
+            seed_suffix = "" if seed is None else f"_{seed}"
+            img_filename = (
+                f"{'' if args.output_name is None else args.output_name + '_'}{ts_str}_{num_suffix}_{i:02d}{seed_suffix}.png"
+            )
+
+            image.save(os.path.join(save_dir, img_filename))
+                 
+            
+
 
 
 def sample_images_common(

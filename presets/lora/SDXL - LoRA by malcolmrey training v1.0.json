@@ -58,7 +58,7 @@
     "noise_offset": 0,
     "noise_offset_type": "Original",
     "num_cpu_threads_per_process": 2,
-    "optimizer": "AdamW8bit",
+    "optimizer": "AdamW",
     "optimizer_args": "",
     "persistent_data_loader_workers": false,
     "prior_loss_weight": 1.0,

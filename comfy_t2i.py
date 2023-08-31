@@ -4,15 +4,14 @@ import time
 sys.path.append("ComfyUI")
 import numpy as np
 import torch
-from comfy.sd import load_checkpoint_guess_config, load_controlnet
+from comfy.sd import load_checkpoint_guess_config
 from comfy_extras.nodes_canny import Canny
+from image_utils import load_image
 # load controlnet controlnet loader
 from nodes import (CheckpointLoaderSimple, CLIPTextEncode,
                    ControlNetApplyAdvanced, ControlNetLoader, EmptyLatentImage,
                    KSampler, LoadImage, VAEDecode)
 from PIL import Image
-
-from image_utils import load_image
 
 # print(KSampler.INPUT_TYPES())
 # for i in range(7):
@@ -88,6 +87,7 @@ def t2i(prompt, lora_path=None):
             i = 255. * image.cpu().numpy()
             img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
             img.save("test_out.png")
+            return img
         print(t.elapsed)
     # lp.print_stats(output_unit=1.0)
 # pos = 

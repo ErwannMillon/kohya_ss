@@ -3,6 +3,7 @@ import argparse
 import torch
 
 import train_network
+from comfy_t2i import t2i
 from config_utils import save_namespace_to_yaml
 from library import sdxl_model_util, sdxl_train_util, train_util
 
